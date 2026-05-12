@@ -84,9 +84,12 @@ const OffresEntreprise = () => {
                         </p>
                     </div>
 
-                    <button className="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded-md">
+                    <Link
+                        to="/entreprise/CreateOffre"
+                        className="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded-md"
+                    >
                         + Nouvelle offre
-                    </button>
+                    </Link>
 
                 </div>
             </header>

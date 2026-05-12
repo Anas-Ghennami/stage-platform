@@ -1,6 +1,6 @@
 import usersByRole from "../../DonneesUserFake/FakeUser";
 import OffresFake from "../../DonneesUserFake/OffresFake";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const DashboardEntreprise = () => {
     const user = usersByRole.entreprise;
@@ -21,6 +21,8 @@ const DashboardEntreprise = () => {
         rejected: "Refusé",
     };
 
+
+
     return (
 
         <div id="page_etudiant_dashboard" className="min-h-screen bg-slate-200/30">
@@ -38,9 +40,12 @@ const DashboardEntreprise = () => {
                         </p>
                     </div>
 
-                    <button className="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded-md">
+                    <Link
+                        to="/entreprise/CreateOffre"
+                        className="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded-md"
+                    >
                         + Nouvelle offre
-                    </button>
+                    </Link>
 
                 </div>
             </header>
