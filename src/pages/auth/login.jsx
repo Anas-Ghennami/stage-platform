@@ -171,10 +171,6 @@ const Login = () => {
       </div>
 
 
-
-
-
-
       {/* RIGHT SIDE (FORM FULL PANEL) */}
       <div className="w-full md:w-1/2 h-full flex justify-center ">
 
@@ -269,8 +265,14 @@ const Login = () => {
                 >Créer un compte
                 </Link>
               </p>
+
+              
+              
             </div>
+
           </form>
+
+
 
 
         </div>

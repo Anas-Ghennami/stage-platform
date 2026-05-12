@@ -5,10 +5,12 @@ import { NavLink } from "react-router-dom";
 
 
 // Sidebar reçoit le role depuis parent (temporaire - backend plus tard)
-const SideBar = ({ role }) => {
+const SideBar = ({ role, openSidebar, setOpenSidebar }) => {
 
 
     // !!! FAKE DATA (sera remplacé par backend + BD)
+
+
     // ** ** ** ** Menu By Role ** ** ** **
     const menuByRole = {
         // ** ** ** ** Etudiant role ** ** ** **
@@ -100,7 +102,7 @@ const SideBar = ({ role }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                 ),
-                path: "/entreprise/create-offre"
+                path: "/entreprise/CreateOffre"
             },
             {
                 id: "menu_entreprise_profile",
@@ -180,14 +182,33 @@ const SideBar = ({ role }) => {
     const menu = menuByRole[role];
 
     return (
-        <div id="sideBar" className="w-72 h-screen bg-slate-900 backdrop-blur-md flex flex-col">
+        <div id="sideBar" id="sideBar"
+            className={`
+                fixed top-0 left-0  h-screen w-72 bg-slate-900 z-50 
+                transform transition-transform duration-300
+                ${openSidebar ? "translate-x-0" : "-translate-x-full"}
+                lg:translate-x-0
+            `}
+        >
+
+
 
             {/* HEADER (logo section) */}
+
             <div id="sidebar_header" className="flex items-center gap-3 mb-6 pr-5 pl-5 pt-5">
+
+                {/* CLOSE BUTTON (mobile only) */}
+                <button
+                    id="close_sidebar"
+                    onClick={() => setOpenSidebar(false)}
+                    className="m-1 px-3 py-2 rounded-xl text-white hover:bg-white/10 hover:border-x hover:border-white/10 lg:hidden font-bold text-md "
+                >
+                    ✕
+                </button>
 
                 {/* icon box */}
                 <div id="logo_icon" className="w-10 h-10 flex items-center justify-center rounded-xl 
-                    bg-white/10 border border-gray-500/40">
+                     bg-gradient-to-r from-cyan-500 to-blue-500">
 
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -198,7 +219,10 @@ const SideBar = ({ role }) => {
                         <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zm0 13L3.74 11.5 12 7l8.26 4.5L12 16z" />
                     </svg>
 
+
+
                 </div>
+
 
                 {/* logo text */}
                 <div id="logo_text" className="flex flex-col">
@@ -232,7 +256,7 @@ const SideBar = ({ role }) => {
                                     `flex font-semibold rounded-lg py-[2.3%] px-4 mx-2 transition 
                                     ${isActive
                                         ? "bg-blue-500/75 text-white "
-                                        : "text-gray-400 hover:bg-gray-500/10"
+                                        : "text-gray-400 hover:bg-gray-500/10 duration-300"
                                     }`
                                 }
                             >
