@@ -1,23 +1,21 @@
-
-venv/
-
-
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
+# Virtual environment
+venv/
+env/
 
+# Environment variables
 .env
 
+# Django
 *.log
 db.sqlite3
-
 media/
 
+# IDE
 .vscode/
-
-node_modules/
-dist/
-
-cahier de charge 2.pdf
+.idea/

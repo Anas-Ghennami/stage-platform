@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.conf import settings
 from offers.models import Offer
@@ -17,6 +18,7 @@ class Application(models.Model):
         (CANCELLED, "Cancelled"),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -25,9 +27,10 @@ class Application(models.Model):
     offer = models.ForeignKey(Offer, on_delete=models.CASCADE, related_name="applications")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
     applied_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("student", "offer")  # prevent duplicate applications
+        unique_together = ("student", "offer")
 
     def __str__(self):
         return f"{self.student} → {self.offer}"
@@ -43,15 +46,12 @@ class InternshipReport(models.Model):
         (NON_COMPLIANT, "Non Compliant"),
     ]
 
-    student = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="reports"
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     application = models.OneToOneField(Application, on_delete=models.CASCADE, related_name="report")
     file = models.FileField(upload_to="reports/")
     submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=PENDING)
 
     def __str__(self):
-        return f"Report - {self.student}"
+        return f"Report - {self.application.student}"

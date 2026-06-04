@@ -1,3 +1,4 @@
+import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
@@ -29,11 +30,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         (ADMIN, "Admin"),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -45,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class StudentProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -52,6 +56,7 @@ class StudentProfile(models.Model):
     study_level = models.CharField(max_length=50)
     skills = models.TextField(blank=True)
     cv = models.FileField(upload_to="cvs/", null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -67,14 +72,16 @@ class CompanyProfile(models.Model):
         (REJECTED, "Rejected"),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="company_profile")
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     industry = models.CharField(max_length=100, blank=True)
     contact = models.CharField(max_length=100, blank=True)
     logo = models.ImageField(upload_to="logos/", null=True, blank=True)
-    legal_id = models.CharField(max_length=50, blank=True)  # SIRET/ICE legal number
+    legal_id = models.CharField(max_length=50, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password as django_validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import StudentProfile, CompanyProfile
 
 User = get_user_model()
@@ -15,6 +17,13 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["email", "password", "first_name", "last_name", "field_of_study", "study_level"]
+
+    def validate_password(self, value):
+        try:
+            django_validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+        return value
 
     def create(self, validated_data):
         profile_data = {
@@ -43,6 +52,13 @@ class CompanyRegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ["email", "password", "name", "industry", "contact", "legal_id"]
 
+    def validate_password(self, value):
+        try:
+            django_validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+        return value
+
     def create(self, validated_data):
         profile_data = {
             "name": validated_data.pop("name"),
@@ -54,7 +70,33 @@ class CompanyRegisterSerializer(serializers.ModelSerializer):
             email=validated_data["email"],
             password=validated_data["password"],
             role=User.COMPANY,
-            is_active=False,  # company must wait for admin approval
+            is_active=False,
         )
         CompanyProfile.objects.create(user=user, **profile_data)
         return user
+
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = StudentProfile
+        fields = ['email', 'first_name', 'last_name', 'field_of_study', 'study_level', 'skills', 'cv', 'updated_at']
+        read_only_fields = ['updated_at']
+
+
+class CompanyProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = CompanyProfile
+        fields = ['email', 'name', 'description', 'industry', 'contact', 'logo', 'legal_id', 'status', 'updated_at']
+        read_only_fields = ['status', 'updated_at']
+
+
+class CompanyAdminSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = CompanyProfile
+        fields = ['id', 'email', 'name', 'description', 'industry', 'contact', 'legal_id', 'status', 'updated_at']
