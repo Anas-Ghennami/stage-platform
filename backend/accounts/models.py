@@ -55,6 +55,8 @@ class StudentProfile(models.Model):
     field_of_study = models.CharField(max_length=100)
     study_level = models.CharField(max_length=50)
     skills = models.TextField(blank=True)
+    about = models.TextField(blank=True)
+    photo = models.ImageField(upload_to="photos/", null=True, blank=True)
     cv = models.FileField(upload_to="cvs/", null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -80,6 +82,8 @@ class CompanyProfile(models.Model):
     contact = models.CharField(max_length=100, blank=True)
     logo = models.ImageField(upload_to="logos/", null=True, blank=True)
     legal_id = models.CharField(max_length=50, blank=True)
+    website = models.URLField(max_length=200, blank=True)
+    address = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
     updated_at = models.DateTimeField(auto_now=True)
 

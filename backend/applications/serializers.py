@@ -21,10 +21,11 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
 class InternshipReportSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
+    offer_title = serializers.CharField(source='application.offer.title', read_only=True)
 
     class Meta:
         model = InternshipReport
-        fields = ['id', 'student_name', 'application', 'file', 'submitted_at', 'updated_at', 'status']
+        fields = ['id', 'student_name', 'offer_title', 'application', 'file', 'submitted_at', 'updated_at', 'status']
         read_only_fields = ['submitted_at', 'updated_at', 'status']
 
     def get_student_name(self, obj):

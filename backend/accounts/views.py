@@ -2,12 +2,20 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password as django_validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from decouple import config
+
+
+def paginate_queryset(queryset, request, serializer_class):
+    paginator = PageNumberPagination()
+    paginator.page_size = 10
+    page = paginator.paginate_queryset(queryset, request)
+    return paginator.get_paginated_response(serializer_class(page, many=True).data)
 from .serializers import (
     StudentRegisterSerializer, CompanyRegisterSerializer,
     StudentProfileSerializer, CompanyProfileSerializer, CompanyAdminSerializer
@@ -88,6 +96,7 @@ class LoginView(APIView):
             "refresh": str(refresh),
             "role": user.role,
             "id": str(user.id),
+            "email": user.email,
         })
 
 
@@ -136,11 +145,10 @@ class AdminCompanyListView(APIView):
     def get(self, request):
         status_filter = request.query_params.get('status', 'pending')
         if status_filter == 'all':
-            companies = CompanyProfile.objects.all()
+            companies = CompanyProfile.objects.all().order_by('-updated_at')
         else:
-            companies = CompanyProfile.objects.filter(status=status_filter)
-        serializer = CompanyAdminSerializer(companies, many=True)
-        return Response(serializer.data)
+            companies = CompanyProfile.objects.filter(status=status_filter).order_by('-updated_at')
+        return paginate_queryset(companies, request, CompanyAdminSerializer)
 
 
 class AdminCompanyApproveView(APIView):

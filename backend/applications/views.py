@@ -2,7 +2,15 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
+
+
+def paginate_queryset(queryset, request, serializer_class):
+    paginator = PageNumberPagination()
+    paginator.page_size = 10
+    page = paginator.paginate_queryset(queryset, request)
+    return paginator.get_paginated_response(serializer_class(page, many=True).data)
 from .models import Application, InternshipReport
 from .serializers import ApplicationSerializer, InternshipReportSerializer
 from offers.models import Offer
@@ -13,6 +21,23 @@ class ApplyView(APIView):
     permission_classes = [IsStudent]
 
     def post(self, request):
+        profile = request.user.student_profile
+        missing = []
+        if not profile.first_name: missing.append("prénom")
+        if not profile.last_name: missing.append("nom")
+        if not profile.field_of_study: missing.append("filière")
+        if not profile.study_level: missing.append("niveau d'études")
+        if missing:
+            return Response(
+                {'error': f'Profil incomplet. Veuillez renseigner : {", ".join(missing)}.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not profile.cv:
+            return Response(
+                {'error': 'Veuillez uploader votre CV avant de postuler.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         offer_id = request.data.get('offer')
         try:
             offer = Offer.objects.get(pk=offer_id, status=Offer.APPROVED)
@@ -131,9 +156,11 @@ class AdminReportListView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
+        status_filter = request.query_params.get('status', None)
         reports = InternshipReport.objects.all().order_by('-submitted_at')
-        serializer = InternshipReportSerializer(reports, many=True)
-        return Response(serializer.data)
+        if status_filter:
+            reports = reports.filter(status=status_filter)
+        return paginate_queryset(reports, request, InternshipReportSerializer)
 
 
 class ReportDetailView(APIView):

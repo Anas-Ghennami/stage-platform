@@ -20,6 +20,7 @@ const Login = () => {
       localStorage.setItem("refresh_token", res.data.refresh);
       localStorage.setItem("role", res.data.role);
       localStorage.setItem("user_id", res.data.id);
+      localStorage.setItem("user_email", res.data.email);
 
       if (res.data.role === "student") navigate("/etudiant/dashboard");
       else if (res.data.role === "company") navigate("/entreprise/dashboard");

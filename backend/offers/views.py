@@ -2,9 +2,17 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from .models import Offer
 from .serializers import OfferSerializer
 from accounts.permissions import IsApprovedCompany, IsCompany, IsAdmin
+
+
+def paginate_queryset(queryset, request, serializer_class):
+    paginator = PageNumberPagination()
+    paginator.page_size = 10
+    page = paginator.paginate_queryset(queryset, request)
+    return paginator.get_paginated_response(serializer_class(page, many=True).data)
 
 
 class OfferListView(APIView):
@@ -84,9 +92,12 @@ class PendingOffersView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        offers = Offer.objects.filter(status=Offer.PENDING).order_by('-created_at')
-        serializer = OfferSerializer(offers, many=True)
-        return Response(serializer.data)
+        status_filter = request.query_params.get('status', 'pending')
+        if status_filter == 'all':
+            offers = Offer.objects.all().order_by('-created_at')
+        else:
+            offers = Offer.objects.filter(status=status_filter).order_by('-created_at')
+        return paginate_queryset(offers, request, OfferSerializer)
 
 
 class OfferApproveView(APIView):

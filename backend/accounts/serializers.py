@@ -81,16 +81,17 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProfile
-        fields = ['email', 'first_name', 'last_name', 'field_of_study', 'study_level', 'skills', 'cv', 'updated_at']
+        fields = ['email', 'first_name', 'last_name', 'field_of_study', 'study_level', 'skills', 'about', 'photo', 'cv', 'updated_at']
         read_only_fields = ['updated_at']
 
 
 class CompanyProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
+    website = serializers.URLField(allow_blank=True, required=False)
 
     class Meta:
         model = CompanyProfile
-        fields = ['email', 'name', 'description', 'industry', 'contact', 'logo', 'legal_id', 'status', 'updated_at']
+        fields = ['email', 'name', 'description', 'industry', 'contact', 'logo', 'legal_id', 'website', 'address', 'status', 'updated_at']
         read_only_fields = ['status', 'updated_at']
 
 

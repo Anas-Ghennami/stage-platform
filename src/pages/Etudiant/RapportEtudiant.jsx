@@ -1,196 +1,268 @@
-import usersByRole from "../../DonneesUserFake/FakeUser";
-import OffresFake from "../../DonneesUserFake/OffresFake";
-import RapportEtud from "../../DonneesUserFake/RapportEtud";
-import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import api from "../../api/axios";
+import Toast from "../../components/Toast";
+
+const statusConfig = {
+  pending:       { label: "En attente de vérification", color: "bg-orange-50 border-orange-200 text-orange-700", dot: "bg-orange-400" },
+  verified:      { label: "Rapport vérifié",             color: "bg-green-50 border-green-200 text-green-700",   dot: "bg-green-500" },
+  non_compliant: { label: "Non conforme",                color: "bg-red-50 border-red-200 text-red-700",         dot: "bg-red-500" },
+};
+
+const formatSize = (bytes) => {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+};
 
 const RapportEtudiant = () => {
-    const [Titel_rapport, setTitel_rapport] = useState("");
+  const [acceptedApps, setAcceptedApps] = useState([]);
+  const [selectedApp, setSelectedApp] = useState("");
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [toast, setToast] = useState(null);
+  const fileRef = useRef();
 
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [appRes, repRes] = await Promise.all([
+        api.get("/applications/my/"),
+        api.get("/applications/reports/my/"),
+      ]);
+      const apps = appRes.data.results ?? appRes.data;
+      const reps = repRes.data.results ?? repRes.data;
+      const reportedAppIds = new Set(reps.map(r => r.application));
+      setAcceptedApps(apps.filter(a => a.status === "accepted" && !reportedAppIds.has(a.id)));
+      setReports(reps);
+    } catch (_) {}
+    setLoading(false);
+  };
 
-    const user = usersByRole.etudiant;
-    const rapport = RapportEtud;
+  useEffect(() => { load(); }, []);
 
-    const statusStyles = {
-        submitted: "bg-blue-100 text-blue-800 border border-blue-800",
-        evaluated: "bg-purple-100 text-purple-800 border border-purple-800",
-        draft: "bg-gray-200 text-gray-800 border border-gray-800",
-    };
+  const handleFileSelect = (file) => {
+    if (!file) return;
+    const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    if (!allowed.includes(file.type)) {
+      setToast({ message: "Format non supporté. Utilisez PDF ou Word.", type: "error" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setToast({ message: "Fichier trop lourd. Maximum 10 Mo.", type: "error" });
+      return;
+    }
+    setSelectedFile(file);
+  };
 
-    const statusText = {
-        submitted: "Soumis",
-        evaluated: "Évalué",
-        draft: "Brouillon",
-    };
+  const onDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files[0]);
+  }, []);
 
-    return (
-        <div id="page_etudiant_stages" className="h-screen bg-slate-200/30">
-            <header id="header_dashboard" className="p-7">
-                <div id="header_text">
-                    <h1 id="header_title" className="text-2xl font-[700]  text-slate-800 ">Mon rapport de stage</h1>
-                    <p id="header_subtitle" className="text-gray-500 py-1 sm:text-[10px] md:text-[12px] lg:text-[14px]"> Soumettez votre rapport et suivez son évaluation.</p>
+  const onDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const onDragLeave = () => setIsDragging(false);
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedApp || !selectedFile) return;
+    setSubmitting(true);
+    try {
+      const data = new FormData();
+      data.append("application", selectedApp);
+      data.append("file", selectedFile);
+      await api.post("/applications/reports/submit/", data);
+      setToast({ message: "Rapport soumis avec succès !", type: "success" });
+      setSelectedApp("");
+      setSelectedFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+      load();
+    } catch (err) {
+      const data = err.response?.data;
+      const msg = data ? Object.values(data).flat().join(" ") : "Erreur lors de la soumission.";
+      setToast({ message: msg, type: "error" });
+    }
+    setSubmitting(false);
+  };
+
+  const canSubmit = selectedApp && selectedFile && !submitting;
+
+  return (
+    <div className="min-h-screen bg-slate-200/30">
+      <header className="p-7">
+        <h1 className="text-2xl font-bold text-slate-800">Mon rapport de stage</h1>
+        <p className="text-gray-500 text-sm">Soumettez votre rapport et suivez son évaluation.</p>
+      </header>
+
+      <section className="grid grid-cols-1 px-7 lg:grid-cols-9 gap-6 pb-8">
+
+        {/* FORM */}
+        <form onSubmit={handleSubmit} className="lg:col-span-6 bg-white rounded-xl shadow p-6 flex flex-col gap-6">
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">Soumettre un rapport</h2>
+            <p className="text-sm text-gray-400 mt-0.5">Les deux champs sont requis avant de pouvoir soumettre.</p>
+          </div>
+
+          {loading ? (
+            <p className="text-gray-400 text-sm">Chargement...</p>
+          ) : acceptedApps.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+              <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-7 text-gray-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Aucun stage à rapporter</p>
+                <p className="text-xs text-gray-400 mt-1">Vous pourrez soumettre un rapport une fois qu'une candidature est acceptée par une entreprise.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* STEP 1 */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold shrink-0">1</span>
+                  <label className="text-sm font-medium text-gray-700">Choisir le stage concerné</label>
                 </div>
-            </header>
+                <select value={selectedApp} onChange={e => setSelectedApp(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  <option value="">-- Sélectionner un stage --</option>
+                  {acceptedApps.map(a => (
+                    <option key={a.id} value={a.id}>{a.offer_title}</option>
+                  ))}
+                </select>
+              </div>
 
-            <section className="grid grid-cols-1 px-7 lg:grid-cols-9 gap-4 ">
-
-                {/* LEFT SIDE (75%) */}
-                <form
-                    id="cards-stages-left"
-                    className="lg:col-span-6 flex flex-col gap-2 bg-white rounded-xl shadow p-4"
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        console.log("submit"); // دابا غير test
-                    }}
-                >
-
-                    {/* TITLE */}
-                    <div id="card_rapport_title">
-                        <h2
-                            id="cards-stages-left-title-inner-title"
-                            className="text-[15px] font-medium text-slate-800 "
-                        >
-                            Soumettre un nouveau rapport
-                        </h2>
-                    </div>
-
-                    {/* INPUT TITRE */}
-                    <div id="input_titre_container" className="px-4 flex flex-col gap-2">
-                        <label
-                            id="label_titre_rapport"
-                            className="text-sm font-medium text-gray-700"
-                            htmlFor="Titel_rapport"
-                        >
-                            Titre du rapport
-                        </label>
-
-                        <div id="input_titre_wrapper" className="relative">
-                            <input
-                                id="Titel_rapport"
-                                name="Titel_rapport"
-                                type="text"
-                                value={Titel_rapport}
-                                onChange={(e) => setTitel_rapport(e.target.value)}
-                                placeholder="Ex: Rapport stage React"
-                                className="w-full pl-3 pr-10 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    {/* INPUT RESUME */}
-                    <div id="input_resume_container" className=" px-4 flex flex-col gap-2">
-                        <label
-                            id="label_resume"
-                            className="text-sm font-medium text-gray-700"
-                            htmlFor="resume"
-                        >
-                            Résumé
-                        </label>
-
-                        <textarea
-                            id="resume"
-                            name="resume"
-                            rows="4"
-                            placeholder="Décrivez brièvement votre rapport..."
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-                        />
-                    </div>
-
-                    {/* INPUT FILE PDF */}
-                    <div id="input_file_container" className="px-4  flex flex-col gap-2">
-                        <label
-                            id="label_file"
-                            className="text-sm font-medium text-gray-700"
-                            htmlFor="file_pdf"
-                        >
-                            Ajouter le rapport (PDF)
-                        </label>
-
-                        <div class="flex items-center justify-center w-full ">
-                            <label htmlFor="dropzone-file"
-                                className="flex flex-col items-center justify-center 
-                                        w-full h-45 border border-dashed border-gray-400 
-                                        rounded-lg cursor-pointer hover:bg-gray-100
-                                        focus-within:outline-none focus-within:ring-1 focus-within:ring-blue-500 transition">
-                                <div className="flex flex-col items-center text-gray-500/70 justify-center text-body pt-5 pb-6 ">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-8 font-semibold">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                                    </svg>
-                                    <p class="mb-2 text-sm"><span class="font-semibold">Glissez-déposez votre fichier ou cliquez</span></p>
-                                    <p class="text-xs">PDF ou DOCX, max 10 Mo</p>
-                                </div>
-                                <input id="dropzone-file" type="file" class="sr-only" />
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* BUTTON */}
-                    <div id="submit_button_container" className=" p-4">
-                        <button
-                            id="submit_rapport"
-                            type="submit"
-                            className="w-full bg-blue-700 hover:bg-blue-800 text-white/90 text-sm font-semibold px-6 py-2 rounded-md transition"
-                        >
-                            Soumettre le rapport
-                        </button>
-                    </div>
-
-                </form>
-
-                {/* RIGHT SIDE (25%) */}
-                <div id="right_side" className="lg:col-span-3 flex flex-col gap-4">
-
-                    <div id="recent_activity" className="bg-white rounded-xl shadow p-4">
-                        <h2 id="cards-stages-left-title-inner-title" className="text-[15px] font-medium text-slate-800  px-1 flex ">
-                            Historique
-                        </h2>
-
-                        <div id="recent_activity" className=" p-4 flex flex-col gap-3">
-                            {rapport.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm border border-gray-200"
-                                >
-                                    <div className="flex gap-3">
-
-
-
-                                        <div>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-gray-500">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                            </svg>
-                                        </div>
-
-                                        <div className="flex flex-col ">
-                                            <span className="text-sm font-semibold text-gray-800 w-45">
-                                                {item.title}
-                                            </span>
-
-
-                                            <span className="text-[11px] text-gray-500 flex items-center mt-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2"> <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /> </svg>
-                                                {item.date}
-                                            </span>
-                                        </div>
-
-                                    </div>
-
-                                    <span className={`text-xs font-semibold px-2 py-1 rounded-md ${statusStyles[item.status]}`}>
-                                        {statusText[item.status]}
-                                    </span>
-                                </div>
-                            ))}
-
-                        </div>
-                    </div>
-
+              {/* STEP 2 */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold shrink-0 ${selectedApp ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-400"}`}>2</span>
+                  <label className="text-sm font-medium text-gray-700">Uploader le fichier rapport</label>
                 </div>
 
-            </section>
+                {selectedFile ? (
+                  <div className="flex items-center justify-between gap-3 border border-green-200 bg-green-50 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-5 text-green-600">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 truncate max-w-xs">{selectedFile.name}</p>
+                        <p className="text-xs text-gray-500">{formatSize(selectedFile.size)}</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={removeFile}
+                      className="text-gray-400 hover:text-red-500 transition text-lg leading-none">✕</button>
+                  </div>
+                ) : (
+                  <div
+                    onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
+                    onClick={() => fileRef.current.click()}
+                    className={`flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition
+                      ${isDragging ? "border-blue-400 bg-blue-50 scale-[1.01]" : "border-gray-300 hover:border-blue-300 hover:bg-gray-50"}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"
+                      className={`size-8 mb-2 transition ${isDragging ? "text-blue-500" : "text-gray-400"}`}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    {isDragging ? (
+                      <p className="text-sm font-medium text-blue-600">Déposez le fichier ici</p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-500">Glissez-déposez ou <span className="text-blue-600 font-medium">cliquez pour choisir</span></p>
+                        <p className="text-xs text-gray-400 mt-1">PDF ou Word — max 10 Mo</p>
+                      </>
+                    )}
+                    <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden"
+                      onChange={e => handleFileSelect(e.target.files[0])} />
+                  </div>
+                )}
+              </div>
 
+              {/* SUBMIT */}
+              <button type="submit" disabled={!canSubmit}
+                className={`w-full py-3 rounded-xl text-sm font-semibold transition
+                  ${canSubmit
+                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}>
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin size-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                    Envoi en cours...
+                  </span>
+                ) : !selectedApp ? "Sélectionnez un stage pour continuer"
+                  : !selectedFile ? "Uploadez votre rapport pour continuer"
+                  : "Soumettre le rapport"}
+              </button>
+            </>
+          )}
+        </form>
+
+        {/* HISTORY */}
+        <div className="lg:col-span-3 bg-white rounded-xl shadow p-5 flex flex-col gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">Historique</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{reports.length} rapport(s) soumis</p>
+          </div>
+
+          {loading ? (
+            <p className="text-gray-400 text-sm">Chargement...</p>
+          ) : reports.length === 0 ? (
+            <div className="flex flex-col items-center py-8 text-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-10 text-gray-200">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+              <p className="text-sm text-gray-400">Aucun rapport soumis</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {reports.map(r => {
+                const cfg = statusConfig[r.status] || statusConfig.pending;
+                return (
+                  <div key={r.id} className={`rounded-xl border p-4 ${cfg.color}`}>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <p className="text-sm font-semibold text-gray-800 leading-tight">{r.offer_title || "Stage"}</p>
+                      <span className="flex items-center gap-1 text-xs font-medium shrink-0">
+                        <span className={`w-2 h-2 rounded-full ${cfg.dot}`}></span>
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Soumis le {new Date(r.submitted_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                    <a href={`http://127.0.0.1:8000${r.file}`} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline transition">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      Télécharger le rapport
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-    );
-}
+
+      </section>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+};
 
 export default RapportEtudiant;

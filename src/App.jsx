@@ -15,11 +15,11 @@ import CreateOffre from "./pages/Entreprise/CreateOffre";
 import ProfileEntreprise from "./pages/Entreprise/ProfileEntreprise";
 
 import DashboardAdmin from "./pages/Admin/Dashboard";
+import Entreprises from "./pages/Admin/Entreprises";
+import OffresAdmin from "./pages/Admin/Offres";
+import Rapports from "./pages/Admin/Rapports";
 
-const AdminCompanies = () => <h1 className="text-center mt-50 text-5xl">Entreprises</h1>;
-const AdminOffres = () => <h1 className="text-center mt-50 text-5xl">Offres</h1>;
-const AdminRapports = () => <h1 className="text-center mt-50 text-5xl">Rapports</h1>;
-const AdminUsers = () => <h1 className="text-center mt-50 text-5xl">Utilisateurs</h1>;
+const AdminUsers = () => <div className="p-8"><h1 className="text-2xl font-bold text-gray-800">Utilisateurs</h1><p className="text-gray-400 mt-2">Bientôt disponible.</p></div>;
 
 const PrivateRoute = ({ children, allowedRole }) => {
   const token = localStorage.getItem("access_token");
@@ -80,9 +80,9 @@ function App() {
             <Route index element={<Navigate to="dashboard" />} />
             <Route path="dashboard" element={<DashboardAdmin />} />
             <Route path="users" element={<AdminUsers />} />
-            <Route path="entreprises" element={<AdminCompanies />} />
-            <Route path="offres" element={<AdminOffres />} />
-            <Route path="rapports" element={<AdminRapports />} />
+            <Route path="entreprises" element={<Entreprises />} />
+            <Route path="offres" element={<OffresAdmin />} />
+            <Route path="rapports" element={<Rapports />} />
           </Route>
 
         </Routes>
